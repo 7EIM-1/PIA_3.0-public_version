@@ -1,0 +1,78 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio temporary files, build results, and
+# user-specific files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# .NET Core
+*.dbmdl
+*.pdb
+*.dll
+*.exe
+*.app
+*.appref-ms
+*.ilk
+*.log
+*.vspscc
+*.vssscc
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userprefs
+
+# Mono Auto Generated Files
+mono_crash.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Local secrets
+*.env
+
+# Azure Pipelines
+.vscode/
