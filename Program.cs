@@ -32,6 +32,13 @@ List<AITool> tools = [];
 var clientOptions = new OpenAI.OpenAIClientOptions { Endpoint = new Uri("http://127.0.0.1:8080") };
 var openAIClient = new OpenAI.OpenAIClient(new ApiKeyCredential("not-needed"), clientOptions);
 
+//Vosk
+string voskmodelpath = string.Empty;
+proc = null;
+byte[] buffer = new byte[4096];
+int bytesRead;
+var recognizer = (VoskRecognizer?)null;
+
 
 //load configs:
 while (!File.Exists(configpath))
