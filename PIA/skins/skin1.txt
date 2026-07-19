@@ -1,0 +1,8 @@
+[listen]>>
+* *
+ - 
+<<[listen]
+[speak]>>
+# #
+ o
+<<[speak]
