@@ -344,8 +344,19 @@ while (true)
 {
     Console.WriteLine();
     Console.ForegroundColor = ConsoleColor.Green;
-    Console.Write("You: ");
-    string? input = Console.ReadLine().Trim();
+    string? input;
+    //Console.WriteLine(Agents[AgentsIndex].skinpath);
+    //Console.ReadLine();
+    if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty )
+    {
+        input = ui.await_input().Trim();
+        LogAction(input, project_path);
+    }
+    else
+    {
+        Console.Write("You: ");
+        input = Console.ReadLine();
+    }
     if (input != null && input.StartsWith('#'))  //Commands
     {
         if (input == "#tools")
