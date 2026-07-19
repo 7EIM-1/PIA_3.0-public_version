@@ -14,11 +14,16 @@ using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
+using P.I.A_3._0_public_version;
+using Vosk;
 
 string project_path = Path.Combine(Environment.CurrentDirectory, "PIA");
 string configpath = Path.Combine(project_path, "config.conf");
 string Agentsfolder = Path.Combine(project_path, "Agents");
 int AgentsIndex = -1;
+CGUI ui = new CGUI();
+
+Process proc;   //arecord process
 
 List<Agent> Agents = new List<Agent>();
 List<McpClient> MCPClients = new List<McpClient>();
@@ -26,6 +31,13 @@ List<ChatMessage> messages = [];
 List<AITool> tools = [];
 var clientOptions = new OpenAI.OpenAIClientOptions { Endpoint = new Uri("http://127.0.0.1:8080") };
 var openAIClient = new OpenAI.OpenAIClient(new ApiKeyCredential("not-needed"), clientOptions);
+
+//Vosk
+string voskmodelpath = string.Empty;
+proc = null;
+byte[] buffer = new byte[4096];
+int bytesRead;
+var recognizer = (VoskRecognizer?)null;
 
 
 //load configs:
@@ -75,6 +87,10 @@ foreach (var line in configs)
             Agentsfolder = arg;
             Console.WriteLine(Agentsfolder);
         }
+        if (key.Trim().StartsWith("voskmodel"))
+        {
+            voskmodelpath = arg;
+        }
 
     }
     catch (Exception ex)
@@ -91,6 +107,8 @@ foreach (var line in configs)
 string name = "";
 string description = "";
 string prompt = "";
+string skinpath = "";
+string vpath = ""; //path to vosk model
 List<string> urls = new List<string>();
 
 if (Directory.Exists(Agentsfolder))
@@ -99,6 +117,11 @@ if (Directory.Exists(Agentsfolder))
     LogAction("loading Agents...", project_path);
     foreach (string file in Directory.GetFiles(Agentsfolder))
     {
+        name = "";
+        description = "";
+        prompt = "";
+        skinpath = "";
+        vpath = "";
         if (file.EndsWith(".txt"))
         {
             Console.WriteLine($"Loading agent: {file.TrimEnd(".txt").TrimStart(Agentsfolder)}");
@@ -107,6 +130,7 @@ if (Directory.Exists(Agentsfolder))
             for (int i = 0; i < lines.Length; i++)
             {
                 string line = lines[i].ToLower().Trim();
+                string normal = lines[i];
                 Console.WriteLine(line);
                 if (line.StartsWith("#"))
                 {
@@ -116,6 +140,16 @@ if (Directory.Exists(Agentsfolder))
                 {
                     name = line[5..].Trim();
                     Console.WriteLine("Name: " + name);
+                }
+                if (line.StartsWith("skinpath:"))
+                {
+                    skinpath = normal[9..].Trim();
+                    Console.WriteLine("skin: " + skinpath);
+                    Console.ReadLine();
+                }
+                if (line.StartsWith("voskpath:"))
+                {
+                    vpath = normal[9..].Trim();
                 }
                 if (line == "<description>")
                 {
@@ -171,7 +205,7 @@ if (Directory.Exists(Agentsfolder))
                 }
             }
 
-            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls });
+            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls, skinpath = skinpath, voskpath = vpath });
         }
     }
     foreach (var agent in Agents)
@@ -227,6 +261,8 @@ if (AgentsIndex != -1)
             {
                 var uri = new Uri(mcp);
                 transports.Add(new HttpClientTransport(new() { Endpoint = uri }));
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"connection to {mcp} succesfull");
             }
             catch (UriFormatException ex)
             {
@@ -255,6 +291,48 @@ if (AgentsIndex != -1)
             continue;
         }
     }
+    LogAction("loading skins...",project_path);
+    LogAction(Agents[AgentsIndex].skinpath,project_path);
+    ui.loadskins(Agents[AgentsIndex].skinpath);
+}
+try
+{
+    // --- arecord Setup ---
+    var psi = new ProcessStartInfo
+    {
+        FileName = "arecord",
+        Arguments = "-f S16_LE -r 16000 -c 1",   // 16-bit PCM, 16 kHz, Mono
+        RedirectStandardOutput = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+    };
+    proc = Process.Start(psi);
+}
+catch (Exception ex)
+{
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine(ex.Message);
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine("Make sure that arecord is installed!");
+    LogAction(ex.Message,project_path);
+    Console.ResetColor();
+}
+
+try
+{
+    Vosk.Vosk.GpuInit();
+    Console.WriteLine("Initializing Vosk speech recognizer...");
+    Vosk.Vosk.SetLogLevel(0);
+    var model = new Model(voskmodelpath);
+    recognizer = new VoskRecognizer(model, 16000f);
+}
+catch (Exception ex)
+{
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine("Error initializing Vosk recognizer: " + ex.Message);
+    LogAction("Error initializing Vosk recognizer: " + ex.Message, project_path);
+    Console.WriteLine("Speech recognition will not be available. This is likely due to an incorrect STT path argument or an issue with the Vosk model file(s).");
+    Console.ResetColor();
 }
 
 foreach (var mcpClient in MCPClients)
@@ -290,8 +368,19 @@ while (true)
 {
     Console.WriteLine();
     Console.ForegroundColor = ConsoleColor.Green;
-    Console.Write("You: ");
-    string? input = Console.ReadLine().Trim();
+    string? input;
+    //Console.WriteLine(Agents[AgentsIndex].skinpath);
+    //Console.ReadLine();
+    if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty )
+    {
+        input = ui.await_input().Trim();
+        LogAction(input, project_path);
+    }
+    else
+    {
+        Console.Write("You: ");
+        input = Console.ReadLine();
+    }
     if (input != null && input.StartsWith('#'))  //Commands
     {
         if (input == "#tools")
@@ -322,6 +411,10 @@ while (true)
         {
             break;
         }
+        if(input == "#speak")
+        {
+            input = voskwatcher().ToString();
+        }
 
         continue;
     }
@@ -337,7 +430,12 @@ while (true)
         }
         messages.Add(new(ChatRole.User, input));
         Console.ForegroundColor = ConsoleColor.Magenta;
-        Console.WriteLine("Thinking...");
+        if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty)
+        {
+            ui.say("thinking...");
+        }
+        else
+        {Console.WriteLine("Thinking...");}
         List<ChatResponseUpdate> updates = [];
         string response = string.Empty;
         await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(messages, new() { Tools = [.. tools] }))
@@ -374,5 +472,49 @@ void LogAction(string message, string project_path)
     {
         Console.WriteLine(ex.Message);
         Console.WriteLine();
+    }
+}
+
+async Task<string> voskwatcher()
+{
+    while (true)
+    {
+        try
+        {
+            if (proc.StandardOutput != null && !proc.StandardOutput.EndOfStream)
+            {
+                bytesRead = proc.StandardOutput.BaseStream.Read(buffer, 0, buffer.Length);
+                if (bytesRead > 0)
+                {
+                    if (recognizer.AcceptWaveform(buffer, bytesRead))
+                    {
+                        string result = recognizer.Result();
+                        string text = Extract(result, "text");
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            Console.WriteLine($"Recognized: {text}");
+                            //input = text;
+                            return text;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error: " + ex.Message);
+        }
+    }
+}
+
+string Extract(string json, string field)
+{
+    try
+    {
+        return JsonDocument.Parse(json).RootElement.GetProperty(field).GetString();
+    }
+    catch
+    {
+        return "";
     }
 }
