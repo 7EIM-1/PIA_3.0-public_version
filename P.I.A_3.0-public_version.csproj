@@ -15,6 +15,7 @@
     <PackageReference Include="OpenAI" Version="2.12.0" />
     <PackageReference Include="OpenAiClient" Version="1.0.0" />
     <PackageReference Include="System.ClientModel" Version="1.14.0" />
+    <PackageReference Include="Vosk" Version="0.3.38" />
   </ItemGroup>
 
 </Project>
