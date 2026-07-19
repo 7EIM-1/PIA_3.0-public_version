@@ -87,6 +87,10 @@ foreach (var line in configs)
             Agentsfolder = arg;
             Console.WriteLine(Agentsfolder);
         }
+        if (key.Trim().StartsWith("voskmodel"))
+        {
+            voskmodelpath = arg;
+        }
 
     }
     catch (Exception ex)
@@ -103,6 +107,8 @@ foreach (var line in configs)
 string name = "";
 string description = "";
 string prompt = "";
+string skinpath = "";
+string vpath = ""; //path to vosk model
 List<string> urls = new List<string>();
 
 if (Directory.Exists(Agentsfolder))
@@ -111,6 +117,11 @@ if (Directory.Exists(Agentsfolder))
     LogAction("loading Agents...", project_path);
     foreach (string file in Directory.GetFiles(Agentsfolder))
     {
+        name = "";
+        description = "";
+        prompt = "";
+        skinpath = "";
+        vpath = "";
         if (file.EndsWith(".txt"))
         {
             Console.WriteLine($"Loading agent: {file.TrimEnd(".txt").TrimStart(Agentsfolder)}");
@@ -119,6 +130,7 @@ if (Directory.Exists(Agentsfolder))
             for (int i = 0; i < lines.Length; i++)
             {
                 string line = lines[i].ToLower().Trim();
+                string normal = lines[i];
                 Console.WriteLine(line);
                 if (line.StartsWith("#"))
                 {
@@ -128,6 +140,16 @@ if (Directory.Exists(Agentsfolder))
                 {
                     name = line[5..].Trim();
                     Console.WriteLine("Name: " + name);
+                }
+                if (line.StartsWith("skinpath:"))
+                {
+                    skinpath = normal[9..].Trim();
+                    Console.WriteLine("skin: " + skinpath);
+                    Console.ReadLine();
+                }
+                if (line.StartsWith("voskpath:"))
+                {
+                    vpath = normal[9..].Trim();
                 }
                 if (line == "<description>")
                 {
@@ -183,7 +205,7 @@ if (Directory.Exists(Agentsfolder))
                 }
             }
 
-            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls });
+            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls, skinpath = skinpath, voskpath = vpath });
         }
     }
     foreach (var agent in Agents)
