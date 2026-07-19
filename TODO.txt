@@ -1,8 +1,8 @@
-[ ] - STT
+[x] - STT
 [x] - LLM
 [ ] - TTS (or does that belong in the mcp category)
 [x] - MCP
-[ ] - Visualization / UI
+[/] - Visualization / UI
 [x] - Config system
 [x] - Agent system
 [ ] - so much more...
