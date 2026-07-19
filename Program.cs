@@ -14,11 +14,16 @@ using System.Diagnostics;
 using System.Reflection.PortableExecutable;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
+using P.I.A_3._0_public_version;
+using Vosk;
 
 string project_path = Path.Combine(Environment.CurrentDirectory, "PIA");
 string configpath = Path.Combine(project_path, "config.conf");
 string Agentsfolder = Path.Combine(project_path, "Agents");
 int AgentsIndex = -1;
+CGUI ui = new CGUI();
+
+Process proc;   //arecord process
 
 List<Agent> Agents = new List<Agent>();
 List<McpClient> MCPClients = new List<McpClient>();
