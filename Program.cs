@@ -267,6 +267,48 @@ if (AgentsIndex != -1)
             continue;
         }
     }
+    LogAction("loading skins...",project_path);
+    LogAction(Agents[AgentsIndex].skinpath,project_path);
+    ui.loadskins(Agents[AgentsIndex].skinpath);
+}
+try
+{
+    // --- arecord Setup ---
+    var psi = new ProcessStartInfo
+    {
+        FileName = "arecord",
+        Arguments = "-f S16_LE -r 16000 -c 1",   // 16-bit PCM, 16 kHz, Mono
+        RedirectStandardOutput = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+    };
+    proc = Process.Start(psi);
+}
+catch (Exception ex)
+{
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine(ex.Message);
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine("Make sure that arecord is installed!");
+    LogAction(ex.Message,project_path);
+    Console.ResetColor();
+}
+
+try
+{
+    Vosk.Vosk.GpuInit();
+    Console.WriteLine("Initializing Vosk speech recognizer...");
+    Vosk.Vosk.SetLogLevel(0);
+    var model = new Model(voskmodelpath);
+    recognizer = new VoskRecognizer(model, 16000f);
+}
+catch (Exception ex)
+{
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine("Error initializing Vosk recognizer: " + ex.Message);
+    LogAction("Error initializing Vosk recognizer: " + ex.Message, project_path);
+    Console.WriteLine("Speech recognition will not be available. This is likely due to an incorrect STT path argument or an issue with the Vosk model file(s).");
+    Console.ResetColor();
 }
 
 foreach (var mcpClient in MCPClients)
