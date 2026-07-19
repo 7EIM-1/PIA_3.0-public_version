@@ -441,3 +441,47 @@ void LogAction(string message, string project_path)
         Console.WriteLine();
     }
 }
+
+async Task<string> voskwatcher()
+{
+    while (true)
+    {
+        try
+        {
+            if (proc.StandardOutput != null && !proc.StandardOutput.EndOfStream)
+            {
+                bytesRead = proc.StandardOutput.BaseStream.Read(buffer, 0, buffer.Length);
+                if (bytesRead > 0)
+                {
+                    if (recognizer.AcceptWaveform(buffer, bytesRead))
+                    {
+                        string result = recognizer.Result();
+                        string text = Extract(result, "text");
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            Console.WriteLine($"Recognized: {text}");
+                            //input = text;
+                            return text;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error: " + ex.Message);
+        }
+    }
+}
+
+string Extract(string json, string field)
+{
+    try
+    {
+        return JsonDocument.Parse(json).RootElement.GetProperty(field).GetString();
+    }
+    catch
+    {
+        return "";
+    }
+}
