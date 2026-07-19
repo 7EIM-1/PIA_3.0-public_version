@@ -261,6 +261,8 @@ if (AgentsIndex != -1)
             {
                 var uri = new Uri(mcp);
                 transports.Add(new HttpClientTransport(new() { Endpoint = uri }));
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"connection to {mcp} succesfull");
             }
             catch (UriFormatException ex)
             {
@@ -409,6 +411,10 @@ while (true)
         {
             break;
         }
+        if(input == "#speak")
+        {
+            input = voskwatcher().ToString();
+        }
 
         continue;
     }
@@ -424,7 +430,12 @@ while (true)
         }
         messages.Add(new(ChatRole.User, input));
         Console.ForegroundColor = ConsoleColor.Magenta;
-        Console.WriteLine("Thinking...");
+        if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty)
+        {
+            ui.say("thinking...");
+        }
+        else
+        {Console.WriteLine("Thinking...");}
         List<ChatResponseUpdate> updates = [];
         string response = string.Empty;
         await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(messages, new() { Tools = [.. tools] }))
