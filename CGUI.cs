@@ -71,4 +71,20 @@ public class CGUI
         Console.WriteLine(text);
         Thread.Sleep(time);
     }
+
+    public void printspeak()
+    {
+        foreach (string line in skin[1])
+        {
+            Console.WriteLine(line);
+        }
+    }
+
+    public void printlisten()
+    {
+        foreach (string line in skin[0])
+        {
+            Console.WriteLine(line);
+        }
+    }
 }

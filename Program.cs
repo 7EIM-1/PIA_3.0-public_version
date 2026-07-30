@@ -1,5 +1,5 @@
 ﻿//This is the public Version of PIA - my Personal Intelligent Assistance
-//please execuse any human error. I am trying to not rely on AI slop. Also my english might be bad.. sorry.. i think...
+//please execuse any human error. I am somewhat trying to avoid AI slop. Also my english might be bad.. sorry.. i think...
 
 
 //variables (i don't know how it is written, maybe something like this...)
@@ -12,6 +12,7 @@ using System.ClientModel;
 using System.Collections;
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
+using System.Text;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
 using P.I.A_3._0_public_version;
@@ -23,7 +24,7 @@ string Agentsfolder = Path.Combine(project_path, "Agents");
 int AgentsIndex = -1;
 CGUI ui = new CGUI();
 
-Process proc;   //arecord process
+Process? proc;   //arecord process
 
 List<Agent> Agents = new List<Agent>();
 List<McpClient> MCPClients = new List<McpClient>();
@@ -39,23 +40,24 @@ byte[] buffer = new byte[4096];
 int bytesRead;
 var recognizer = (VoskRecognizer?)null;
 
+var timeawait = TimeSpan.FromSeconds(600);
+
 
 //load configs:
 while (!File.Exists(configpath))
 {
     Console.ForegroundColor = ConsoleColor.Yellow;
     Console.WriteLine("Configuration File not Found. Enter correct project path or leave blanc to generate new config file: ");
-    string? Input = Console.ReadLine();
-    if (Input == string.Empty)
+    string? input1 = Console.ReadLine();
+    if (string.IsNullOrWhiteSpace(input1))
     {
-        File.Create(Path.Combine(project_path, "config.conf"));
+        using (File.Create(Path.Combine(project_path, "config.conf"))) { }
     }
     else
     {
         try
         {
-            if (Input != null)
-                Environment.CurrentDirectory = Input;
+            Environment.CurrentDirectory = input1;
         }
         catch (Exception ex)
         {
@@ -109,6 +111,8 @@ string description = "";
 string prompt = "";
 string skinpath = "";
 string vpath = ""; //path to vosk model
+string idleprompt = "collect as much context as possible and and start a conversation based on that context. if you can't find anything interesting just reply with something short like '...'.";
+bool autolisten = false;
 List<string> urls = new List<string>();
 
 if (Directory.Exists(Agentsfolder))
@@ -122,6 +126,9 @@ if (Directory.Exists(Agentsfolder))
         prompt = "";
         skinpath = "";
         vpath = "";
+        idleprompt = "collect as much context as possible and and start a conversation based on that context. if you can't find anything interesting just reply with something short like '...'.";
+        autolisten = false;
+
         if (file.EndsWith(".txt"))
         {
             Console.WriteLine($"Loading agent: {file.TrimEnd(".txt").TrimStart(Agentsfolder)}");
@@ -145,7 +152,14 @@ if (Directory.Exists(Agentsfolder))
                 {
                     skinpath = normal[9..].Trim();
                     Console.WriteLine("skin: " + skinpath);
-                    Console.ReadLine();
+                }
+                if(line.StartsWith("autolisten:"))
+                {
+                    if(normal[11..].Trim() == "true" || normal[11..].Trim() == "1")
+                    {
+                        autolisten = true;
+                        Console.WriteLine(autolisten);
+                    }
                 }
                 if (line.StartsWith("voskpath:"))
                 {
@@ -186,6 +200,10 @@ if (Directory.Exists(Agentsfolder))
                     }
                     prompt.Trim("<prompt>");
                 }
+                if (line.StartsWith("idleprompt:"))
+                {
+                    idleprompt = normal[11..].Trim();
+                }
                 if (line == "<mcp_urls>" || line == "<mcpurls>")
                 {
                     i++;
@@ -205,7 +223,7 @@ if (Directory.Exists(Agentsfolder))
                 }
             }
 
-            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls, skinpath = skinpath, voskpath = vpath });
+            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls, skinpath = skinpath, voskpath = vpath, autolisten = autolisten, idleprompt = idleprompt });
         }
     }
     foreach (var agent in Agents)
@@ -248,12 +266,13 @@ else
 //init
 if (AgentsIndex != -1)
 {
+    Agent selectedAgent = Agents[AgentsIndex];
     Console.WriteLine("Connecting to MCP servers...");
     HttpClient httpClient = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:8080") };
 
     // Create the MCP client(s).
     List<HttpClientTransport> transports = new List<HttpClientTransport>();         //creating a list of something
-    foreach (var mcp in Agents[AgentsIndex]?.mcp_Urls ?? new List<string>())
+    foreach (var mcp in selectedAgent.mcp_Urls)
     {
         if (!string.IsNullOrWhiteSpace(mcp))
         {
@@ -292,8 +311,9 @@ if (AgentsIndex != -1)
         }
     }
     LogAction("loading skins...",project_path);
-    LogAction(Agents[AgentsIndex].skinpath,project_path);
-    ui.loadskins(Agents[AgentsIndex].skinpath);
+    string selectedSkinPath = selectedAgent.skinpath ?? string.Empty;
+    LogAction(selectedSkinPath, project_path);
+    ui.loadskins(selectedSkinPath);
 }
 try
 {
@@ -363,23 +383,54 @@ IChatClient client =
     .Build();
 
 //Main loop
+bool x = false;
 
 while (true)
 {
     Console.WriteLine();
     Console.ForegroundColor = ConsoleColor.Green;
-    string? input;
+    string? input = null;
     //Console.WriteLine(Agents[AgentsIndex].skinpath);
     //Console.ReadLine();
     if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty )
     {
-        input = ui.await_input().Trim();
+        if (!Agents[AgentsIndex].autolisten || x)
+        {
+            //input = ui.await_input().Trim();
+            ui.printlisten();
+            Console.WriteLine();
+            input = await Input("You: ", timeawait);
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                input = Agents[AgentsIndex].idleprompt;
+                Console.WriteLine("No input received. Using the default context-gathering prompt.");
+            }
+            else
+            {
+                LogAction(input, project_path);
+            }
+            x = false;
+        }
+        else
+        {
+            input = "#speak";
+        }
+        
         LogAction(input, project_path);
     }
     else
     {
-        Console.Write("You: ");
-        input = Console.ReadLine();
+        input = await Input("You: ", timeawait);
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            input = Agents[AgentsIndex].idleprompt;
+            Console.WriteLine("No input received. Using the default context-gathering prompt.");
+        }
+        else
+        {
+            LogAction(input, project_path);
+        }
+
     }
     if (input != null && input.StartsWith('#'))  //Commands
     {
@@ -413,7 +464,13 @@ while (true)
         }
         if(input == "#speak")
         {
-            input = voskwatcher().ToString();
+            Console.WriteLine("please speak now: ");
+            input = await voskwatcher();
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                x = true; // this disables autospeak so it will wait for a prompt next
+                continue;
+            }
         }
 
         continue;
@@ -475,16 +532,18 @@ void LogAction(string message, string project_path)
     }
 }
 
-async Task<string> voskwatcher()
+async Task<string> voskwatcher(int timeout = 15)
 {
-    while (true)
+    var tout = TimeSpan.FromSeconds(timeout);
+    var sw = Stopwatch.StartNew();
+    while (sw.Elapsed < tout)
     {
         try
         {
-            if (proc.StandardOutput != null && !proc.StandardOutput.EndOfStream)
+            if (proc != null && proc.StandardOutput != null && !proc.StandardOutput.EndOfStream)
             {
                 bytesRead = proc.StandardOutput.BaseStream.Read(buffer, 0, buffer.Length);
-                if (bytesRead > 0)
+                if (bytesRead > 0 && recognizer != null)
                 {
                     if (recognizer.AcceptWaveform(buffer, bytesRead))
                     {
@@ -493,7 +552,6 @@ async Task<string> voskwatcher()
                         if (!string.IsNullOrEmpty(text))
                         {
                             Console.WriteLine($"Recognized: {text}");
-                            //input = text;
                             return text;
                         }
                     }
@@ -504,17 +562,76 @@ async Task<string> voskwatcher()
         {
             Console.WriteLine("Error: " + ex.Message);
         }
+        await Task.Delay(200);
     }
+
+    // No speech recognized within timeout -> return empty string
+    return string.Empty;
 }
 
 string Extract(string json, string field)
 {
     try
     {
-        return JsonDocument.Parse(json).RootElement.GetProperty(field).GetString();
+        return JsonDocument.Parse(json).RootElement.GetProperty(field).GetString() ?? string.Empty;
     }
     catch
     {
         return "";
     }
+}
+
+async Task<string> Input(string prompt, TimeSpan timeout)
+{
+    Console.Write(prompt);
+
+    // Console.ReadLine() blocks forever, so it cannot be used directly when a
+    // timeout is required. Read individual keys instead and check the timeout
+    // between them. This also avoids leaving a background ReadLine task behind
+    // when the timeout expires.
+    if (Console.IsInputRedirected)
+    {
+        // KeyAvailable/ReadKey are only available for an interactive console.
+        // This fallback is useful when input is piped into the application.
+        return await Task.Run(() => Console.ReadLine() ?? string.Empty);
+    }
+
+    var line = new StringBuilder();
+    var stopwatch = Stopwatch.StartNew();
+
+    while (stopwatch.Elapsed < timeout)
+    {
+        while (Console.KeyAvailable)
+        {
+            ConsoleKeyInfo key = Console.ReadKey(intercept: true);
+
+            if (key.Key == ConsoleKey.Enter)
+            {
+                Console.WriteLine();
+                return line.ToString();
+            }
+
+            if (key.Key == ConsoleKey.Backspace)
+            {
+                if (line.Length > 0)
+                {
+                    line.Length--;
+                    Console.Write("\b \b");
+                }
+
+                continue;
+            }
+
+            if (!char.IsControl(key.KeyChar))
+            {
+                line.Append(key.KeyChar);
+                Console.Write(key.KeyChar);
+            }
+        }
+
+        await Task.Delay(50);
+    }
+
+    Console.WriteLine();
+    return string.Empty;
 }

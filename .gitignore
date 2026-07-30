@@ -76,3 +76,4 @@ __pycache__/
 
 # Azure Pipelines
 .vscode/
+PIA/Agents/Private_agent.txt

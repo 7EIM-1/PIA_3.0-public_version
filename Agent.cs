@@ -7,5 +7,7 @@ public class Agent
     public string? Prompt { get; set; }
     public string? skinpath = string.Empty;
     public string? voskpath = string.Empty;
+    public string? idleprompt = string.Empty;
+    public bool autolisten = false;
     public List<string> mcp_Urls = new List<string>();
 }
