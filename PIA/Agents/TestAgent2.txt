@@ -14,3 +14,5 @@ http://127.0.0.1:8000/sse
 http://127.0.0.1:8067/mcp
 http://127.0.0.1:8068/mcp
 </mcp_urls>
+
+idletime:300

@@ -16,3 +16,4 @@ http://127.0.0.1:8068/mcp
 </mcp_urls>
 
 skinpath:/home/emil/projekte/PIA/P.I.A_3.0-public_version/PIA/skins/skin1.txt
+idletime:300

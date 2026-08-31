@@ -39,8 +39,8 @@ proc = null;
 byte[] buffer = new byte[4096];
 int bytesRead;
 var recognizer = (VoskRecognizer?)null;
-
-var timeawait = TimeSpan.FromSeconds(600);
+string? input = string.Empty;
+var timeawait = TimeSpan.FromSeconds(300);
 
 
 //load configs:
@@ -75,8 +75,16 @@ while (!File.Exists(configpath))
 string[] configs = File.ReadAllLines(configpath);
 foreach (var line in configs)
 {
-    string key = line.ToLower().Split(':')[0].Trim();
-    string arg = line.Split(':')[1].Trim();
+    if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#"))
+        continue;
+
+    string[] parts = line.Split(':', 2);
+
+    if (parts.Length != 2)
+        continue;
+
+    string key = parts[0].Trim().ToLowerInvariant();
+    string arg = parts[1].Trim();
     LogAction($"setting {key} to {arg}...", project_path);
     try
     {
@@ -113,7 +121,6 @@ string skinpath = "";
 string vpath = ""; //path to vosk model
 string idleprompt = "collect as much context as possible and and start a conversation based on that context. if you can't find anything interesting just reply with something short like '...'.";
 bool autolisten = false;
-List<string> urls = new List<string>();
 
 if (Directory.Exists(Agentsfolder))
 {
@@ -121,6 +128,7 @@ if (Directory.Exists(Agentsfolder))
     LogAction("loading Agents...", project_path);
     foreach (string file in Directory.GetFiles(Agentsfolder))
     {
+        List<string> urls = new List<string>();
         name = "";
         description = "";
         prompt = "";
@@ -131,8 +139,8 @@ if (Directory.Exists(Agentsfolder))
 
         if (file.EndsWith(".txt"))
         {
-            Console.WriteLine($"Loading agent: {file.TrimEnd(".txt").TrimStart(Agentsfolder)}");
-            LogAction($"Loading agent: {file.TrimEnd(".txt").TrimStart(Agentsfolder)}", project_path);
+            Console.WriteLine($"Loading agent: {Path.GetFileNameWithoutExtension(file)}");
+            LogAction($"Loading agent: {Path.GetFileNameWithoutExtension(file)}", project_path);
             string[] lines = File.ReadAllLines(file);
             for (int i = 0; i < lines.Length; i++)
             {
@@ -170,7 +178,7 @@ if (Directory.Exists(Agentsfolder))
                     description = "";
                     while (line != "</description>")
                     {
-                        description += line + "\n";
+                        description += normal + "\n";
                         i++;
                         if (i < lines.Length)
                         {
@@ -187,7 +195,7 @@ if (Directory.Exists(Agentsfolder))
                     prompt = "";
                     while (line != "</prompt>")
                     {
-                        prompt += line + "\n";
+                        prompt += normal + "\n";
                         i++;
                         if (i < lines.Length)
                         {
@@ -198,11 +206,24 @@ if (Directory.Exists(Agentsfolder))
                             break;
                         }
                     }
-                    prompt.Trim("<prompt>");
+                    prompt = prompt.Replace("<prompt>", "");
                 }
                 if (line.StartsWith("idleprompt:"))
                 {
                     idleprompt = normal[11..].Trim();
+                }
+                if (line.StartsWith("idletime:"))
+                {
+                    try
+                    {
+                        timeawait = TimeSpan.FromSeconds(int.Parse(normal[9..].Trim()));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        LogAction(ex.Message,project_path);
+                    }
+                    
                 }
                 if (line == "<mcp_urls>" || line == "<mcpurls>")
                 {
@@ -235,7 +256,7 @@ if (Directory.Exists(Agentsfolder))
     while (!valid)
     {
         Console.Write("please select an agent by entering a name: ");
-        string? input = Console.ReadLine();
+        input = Console.ReadLine();
         if (input == string.Empty)
         {
             Console.WriteLine("No input, skipping Agent selection...");
@@ -268,7 +289,6 @@ if (AgentsIndex != -1)
 {
     Agent selectedAgent = Agents[AgentsIndex];
     Console.WriteLine("Connecting to MCP servers...");
-    HttpClient httpClient = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:8080") };
 
     // Create the MCP client(s).
     List<HttpClientTransport> transports = new List<HttpClientTransport>();         //creating a list of something
@@ -281,7 +301,7 @@ if (AgentsIndex != -1)
                 var uri = new Uri(mcp);
                 transports.Add(new HttpClientTransport(new() { Endpoint = uri }));
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"connection to {mcp} succesfull");
+                Console.WriteLine($"MCP URL accepted: {mcp}");
             }
             catch (UriFormatException ex)
             {
@@ -321,7 +341,7 @@ try
     var psi = new ProcessStartInfo
     {
         FileName = "arecord",
-        Arguments = "-f S16_LE -r 16000 -c 1",   // 16-bit PCM, 16 kHz, Mono
+        Arguments = "-q -t raw -f S16_LE -r 16000 -c 1",
         RedirectStandardOutput = true,
         UseShellExecute = false,
         CreateNoWindow = true
@@ -384,15 +404,15 @@ IChatClient client =
 
 //Main loop
 bool x = false;
-
+bool y = true;
+input = string.Empty;
 while (true)
 {
     Console.WriteLine();
     Console.ForegroundColor = ConsoleColor.Green;
-    string? input = null;
-    //Console.WriteLine(Agents[AgentsIndex].skinpath);
-    //Console.ReadLine();
-    if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty )
+    if(y)
+    {    
+    if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty)
     {
         if (!Agents[AgentsIndex].autolisten || x)
         {
@@ -405,10 +425,6 @@ while (true)
                 input = Agents[AgentsIndex].idleprompt;
                 Console.WriteLine("No input received. Using the default context-gathering prompt.");
             }
-            else
-            {
-                LogAction(input, project_path);
-            }
             x = false;
         }
         else
@@ -416,15 +432,21 @@ while (true)
             input = "#speak";
         }
         
-        LogAction(input, project_path);
+        LogAction(input ?? "Empty user input", project_path);
     }
     else
     {
         input = await Input("You: ", timeawait);
         if (string.IsNullOrWhiteSpace(input))
         {
+            if(AgentsIndex != -1){
             input = Agents[AgentsIndex].idleprompt;
             Console.WriteLine("No input received. Using the default context-gathering prompt.");
+            }
+            else
+            {
+                continue;
+            }
         }
         else
         {
@@ -434,7 +456,7 @@ while (true)
     }
     if (input != null && input.StartsWith('#'))  //Commands
     {
-        if (input == "#tools")
+        if (input == "#tools" || input == "#help")
         {
             foreach (var mcpClient in MCPClients)
             {   // List all available tools from the MCP servers.
@@ -445,7 +467,7 @@ while (true)
                     foreach (McpClientTool tool in mcpTools)
                     {
                         Console.WriteLine($"{tool}");
-                        tools.Add(tool);
+                        //tools.Add(tool);
                     }
                     Console.WriteLine();
                 }
@@ -465,22 +487,29 @@ while (true)
         if(input == "#speak")
         {
             Console.WriteLine("please speak now: ");
+            input = string.Empty;
             input = await voskwatcher();
+            LogAction("STT returned: " + input, project_path);
+            y = false;
             if (string.IsNullOrWhiteSpace(input))
             {
-                x = true; // this disables autospeak so it will wait for a prompt next
-                continue;
+                x = true; // this disables autospeak so it will wait for a text prompt next
+                LogAction("empty speech input. setting x to true",project_path);
+            }
+            else
+            {
+                bytesRead = 0;
             }
         }
 
-        continue;
+       
     }
     else if (input != null && input.Trim() == string.Empty)   //no input => just ignore
     {
         continue;
     }
-    else                        //no command => handle as message for llm
-    {
+}
+        y = true;
         if(AgentsIndex != -1)
         {
             messages.Add(new(ChatRole.System, Agents[AgentsIndex].Prompt));
@@ -493,22 +522,21 @@ while (true)
         }
         else
         {Console.WriteLine("Thinking...");}
-        List<ChatResponseUpdate> updates = [];
-        string response = string.Empty;
+        string result = string.Empty;
         await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(messages, new() { Tools = [.. tools] }))
         {
             Console.Write(update.Text);
-            updates.Add(update);
-            response += update;
+            result += update.Text;
             //cancel if esc
             if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)
             {
                 Console.WriteLine("Cancelling...");
+                LogAction("llm response canceled by user",project_path);
                 break;
             }
 
         }
-    }
+        LogAction(result, project_path);
 
 }
 
@@ -521,7 +549,7 @@ void LogAction(string message, string project_path)
     {
         if (!File.Exists(Path.Combine(project_path, "logfile.log")))
         {
-            File.Create(Path.Combine(project_path, "logfile.log"));
+            using (File.Create(Path.Combine(project_path, "logfile.log"))) {};
         }
         File.AppendAllText(Path.Combine(project_path, "logfile.log"), DateTime.Now + " -> " + message + "\n");
     }
@@ -534,26 +562,40 @@ void LogAction(string message, string project_path)
 
 async Task<string> voskwatcher(int timeout = 15)
 {
+    bytesRead = 0;
+
     var tout = TimeSpan.FromSeconds(timeout);
     var sw = Stopwatch.StartNew();
+
     while (sw.Elapsed < tout)
     {
         try
         {
-            if (proc != null && proc.StandardOutput != null && !proc.StandardOutput.EndOfStream)
+            if (proc != null &&
+                proc.StandardOutput != null &&
+                !proc.StandardOutput.EndOfStream &&
+                recognizer != null)
             {
-                bytesRead = proc.StandardOutput.BaseStream.Read(buffer, 0, buffer.Length);
-                if (bytesRead > 0 && recognizer != null)
+                bytesRead = proc.StandardOutput.BaseStream.Read(
+                    buffer, 0, buffer.Length);
+
+                if (bytesRead > 0)
                 {
                     if (recognizer.AcceptWaveform(buffer, bytesRead))
                     {
                         string result = recognizer.Result();
                         string text = Extract(result, "text");
-                        if (!string.IsNullOrEmpty(text))
+
+                        if (!string.IsNullOrWhiteSpace(text))
                         {
                             Console.WriteLine($"Recognized: {text}");
                             return text;
                         }
+                    }
+                    else
+                    {
+                        string partial = recognizer.PartialResult();
+                        Console.WriteLine($"Partial: {Extract(partial,"partial")}");
                     }
                 }
             }
@@ -562,13 +604,22 @@ async Task<string> voskwatcher(int timeout = 15)
         {
             Console.WriteLine("Error: " + ex.Message);
         }
-        await Task.Delay(200);
+
+        await Task.Delay(20);
     }
 
-    // No speech recognized within timeout -> return empty string
+    // Get anything Vosk has accumulated before timing out.
+    if (recognizer != null)
+    {
+        string finalResult = recognizer.FinalResult();
+        string text = Extract(finalResult, "text");
+
+        if (!string.IsNullOrWhiteSpace(text))
+            return text;
+    }
+
     return string.Empty;
 }
-
 string Extract(string json, string field)
 {
     try

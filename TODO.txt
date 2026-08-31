@@ -1,8 +1,10 @@
 [x] - STT
 [x] - LLM
-[ ] - TTS (or does that belong in the mcp category)
+[/] - TTS (or does that belong in the mcp category) -> done with mcp server
 [x] - MCP
-[/] - Visualization / UI
+[/] - Visualization / UI -> done with mcp server and vnyan
 [x] - Config system
 [x] - Agent system
+[ ] - trigger implementation
+[x] - idle time customization
 [ ] - so much more...
