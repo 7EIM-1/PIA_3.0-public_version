@@ -40,8 +40,10 @@ byte[] buffer = new byte[4096];
 int bytesRead;
 var recognizer = (VoskRecognizer?)null;
 string? input = string.Empty;
-var timeawait = TimeSpan.FromSeconds(300);
+var timeawait = TimeSpan.FromSeconds(300);  //text input timer
+var listentime = 30;  //speech input timer in seconds
 
+string trigger = "0";  //0 -> no trigger in use
 
 //load configs:
 while (!File.Exists(configpath))
@@ -161,9 +163,14 @@ if (Directory.Exists(Agentsfolder))
                     skinpath = normal[9..].Trim();
                     Console.WriteLine("skin: " + skinpath);
                 }
-                if(line.StartsWith("autolisten:"))
+                if (line.StartsWith("trigger:"))
                 {
-                    if(normal[11..].Trim() == "true" || normal[11..].Trim() == "1")
+                    trigger = normal[8..].Trim().ToLower();
+                    LogAction($"setting triggerword to {trigger}", project_path);
+                }
+                if (line.StartsWith("autolisten:"))
+                {
+                    if (normal[11..].Trim() == "true" || normal[11..].Trim() == "1")
                     {
                         autolisten = true;
                         Console.WriteLine(autolisten);
@@ -221,9 +228,20 @@ if (Directory.Exists(Agentsfolder))
                     catch (Exception ex)
                     {
                         Console.WriteLine(ex.Message);
-                        LogAction(ex.Message,project_path);
+                        LogAction(ex.Message, project_path);
                     }
-                    
+
+                }
+                if (line.StartsWith("listentime:"))
+                {
+                    try
+                    {
+                        listentime = Int32.Parse(normal[11..]);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogAction($"Error in file {file}: ex.Message",project_path);
+                    }
                 }
                 if (line == "<mcp_urls>" || line == "<mcpurls>")
                 {
@@ -330,7 +348,7 @@ if (AgentsIndex != -1)
             continue;
         }
     }
-    LogAction("loading skins...",project_path);
+    LogAction("loading skins...", project_path);
     string selectedSkinPath = selectedAgent.skinpath ?? string.Empty;
     LogAction(selectedSkinPath, project_path);
     ui.loadskins(selectedSkinPath);
@@ -354,7 +372,7 @@ catch (Exception ex)
     Console.WriteLine(ex.Message);
     Console.ForegroundColor = ConsoleColor.Red;
     Console.WriteLine("Make sure that arecord is installed!");
-    LogAction(ex.Message,project_path);
+    LogAction(ex.Message, project_path);
     Console.ResetColor();
 }
 
@@ -404,14 +422,11 @@ IChatClient client =
 
 //Main loop
 bool x = false;
-bool y = true;
 input = string.Empty;
 while (true)
 {
     Console.WriteLine();
     Console.ForegroundColor = ConsoleColor.Green;
-    if(y)
-    {    
     if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty)
     {
         if (!Agents[AgentsIndex].autolisten || x)
@@ -431,7 +446,7 @@ while (true)
         {
             input = "#speak";
         }
-        
+
         LogAction(input ?? "Empty user input", project_path);
     }
     else
@@ -439,9 +454,10 @@ while (true)
         input = await Input("You: ", timeawait);
         if (string.IsNullOrWhiteSpace(input))
         {
-            if(AgentsIndex != -1){
-            input = Agents[AgentsIndex].idleprompt;
-            Console.WriteLine("No input received. Using the default context-gathering prompt.");
+            if (AgentsIndex != -1)
+            {
+                input = Agents[AgentsIndex].idleprompt;
+                Console.WriteLine("No input received. Using the default context-gathering prompt.");
             }
             else
             {
@@ -467,7 +483,6 @@ while (true)
                     foreach (McpClientTool tool in mcpTools)
                     {
                         Console.WriteLine($"{tool}");
-                        //tools.Add(tool);
                     }
                     Console.WriteLine();
                 }
@@ -479,22 +494,27 @@ while (true)
                     LogAction($"Failed to list tools: {ex.Message}", project_path);
                 }
             }
+            await Input("Press Enter", TimeSpan.FromSeconds(10));
+            continue;   //skip the llm part
         }
-        if(input == "#exit")
+        if (input == "#exit")
         {
             break;
         }
-        if(input == "#speak")
+        if (input == "#speak")
         {
             Console.WriteLine("please speak now: ");
             input = string.Empty;
-            input = await voskwatcher();
+            input = await voskwatcher(listentime);
+            if (trigger != "0" && !string.IsNullOrWhiteSpace(trigger) && !input.Contains(trigger))
+            {
+                input = string.Empty;
+            }
             LogAction("STT returned: " + input, project_path);
-            y = false;
             if (string.IsNullOrWhiteSpace(input))
             {
                 x = true; // this disables autospeak so it will wait for a text prompt next
-                LogAction("empty speech input. setting x to true",project_path);
+                LogAction("empty speech input. setting x to true", project_path);
             }
             else
             {
@@ -502,41 +522,39 @@ while (true)
             }
         }
 
-       
+
     }
-    else if (input != null && input.Trim() == string.Empty)   //no input => just ignore
+    if (input != null && input.Trim() == string.Empty)   //no input => just ignore
     {
         continue;
     }
-}
-        y = true;
-        if(AgentsIndex != -1)
+    if (AgentsIndex != -1)
+    {
+        messages.Add(new(ChatRole.System, Agents[AgentsIndex].Prompt));
+    }
+    messages.Add(new(ChatRole.User, input));
+    Console.ForegroundColor = ConsoleColor.Magenta;
+    if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty)
+    {
+        ui.say("Thinking...");
+    }
+    else
+    { Console.WriteLine("Thinking..."); }
+    string result = string.Empty;
+    await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(messages, new() { Tools = [.. tools] }))
+    {
+        Console.Write(update.Text);
+        result += update.Text;
+        //cancel if esc
+        if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)
         {
-            messages.Add(new(ChatRole.System, Agents[AgentsIndex].Prompt));
+            Console.WriteLine("Cancelling...");
+            LogAction("llm response canceled by user", project_path);
+            break;
         }
-        messages.Add(new(ChatRole.User, input));
-        Console.ForegroundColor = ConsoleColor.Magenta;
-        if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty)
-        {
-            ui.say("thinking...");
-        }
-        else
-        {Console.WriteLine("Thinking...");}
-        string result = string.Empty;
-        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(messages, new() { Tools = [.. tools] }))
-        {
-            Console.Write(update.Text);
-            result += update.Text;
-            //cancel if esc
-            if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)
-            {
-                Console.WriteLine("Cancelling...");
-                LogAction("llm response canceled by user",project_path);
-                break;
-            }
 
-        }
-        LogAction(result, project_path);
+    }
+    LogAction(result, project_path);
 
 }
 
@@ -549,7 +567,8 @@ void LogAction(string message, string project_path)
     {
         if (!File.Exists(Path.Combine(project_path, "logfile.log")))
         {
-            using (File.Create(Path.Combine(project_path, "logfile.log"))) {};
+            using (File.Create(Path.Combine(project_path, "logfile.log"))) { }
+            ;
         }
         File.AppendAllText(Path.Combine(project_path, "logfile.log"), DateTime.Now + " -> " + message + "\n");
     }
@@ -560,7 +579,7 @@ void LogAction(string message, string project_path)
     }
 }
 
-async Task<string> voskwatcher(int timeout = 15)
+async Task<string> voskwatcher(int timeout = 30)
 {
     bytesRead = 0;
 
@@ -595,7 +614,7 @@ async Task<string> voskwatcher(int timeout = 15)
                     else
                     {
                         string partial = recognizer.PartialResult();
-                        Console.WriteLine($"Partial: {Extract(partial,"partial")}");
+                        Console.WriteLine($"Partial: {Extract(partial, "partial")}");
                     }
                 }
             }

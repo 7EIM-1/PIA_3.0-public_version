@@ -15,4 +15,7 @@ http://127.0.0.1:8067/mcp
 http://127.0.0.1:8068/mcp
 </mcp_urls>
 
-idletime:300
+#text input timeout in seconds
+idletime:600
+#speech input timeout in seconds
+listentime:30

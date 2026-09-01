@@ -12,7 +12,7 @@ keep your answers short and simple. Don't overthink.
 # enable automatic listen mode
 autolisten:1
 
-trigger:pia #not implemented yet
+#trigger:pia
 
 <mcp_urls>
 http://127.0.0.1:8000/sse
@@ -23,4 +23,7 @@ http://127.0.0.1:8068/mcp
 skinpath:/home/emil/projekte/PIA/P.I.A_3.0-public_version/PIA/skins/skin1.txt
 
 idleprompt: gather as much information of your current situation as possible. use tool calls. only use memorized data if relevant. start a conversation on a topic based on the gathered informations.
+#text input timeout in seconds
 idletime:300
+#speech input timeout in seconds
+listentime:30
