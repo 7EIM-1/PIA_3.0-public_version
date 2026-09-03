@@ -22,6 +22,6 @@ trigger:pia
 
 idleprompt: gather as much information of your current situation as possible. use tool calls. only use memorized data if relevant. start a conversation on a topic based on the gathered informations. it is all about making good content.
 #text input timeout in seconds
-idletime:300
+idletime:30
 #speech input timeout in seconds
 listentime:30

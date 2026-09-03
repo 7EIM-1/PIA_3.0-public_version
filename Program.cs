@@ -148,7 +148,7 @@ if (Directory.Exists(Agentsfolder))
             {
                 string line = lines[i].ToLower().Trim();
                 string normal = lines[i];
-                Console.WriteLine(line);
+                //Console.WriteLine(line);
                 if (line.StartsWith("#"))
                 {
                     continue;
@@ -183,37 +183,24 @@ if (Directory.Exists(Agentsfolder))
                 if (line == "<description>")
                 {
                     description = "";
-                    while (line != "</description>")
+                    int j = i + 1;
+                    while (j < lines.Length && lines[j].Trim().ToLowerInvariant() != "</description>")
                     {
-                        description += normal + "\n";
-                        i++;
-                        if (i < lines.Length)
-                        {
-                            line = lines[i];
-                        }
-                        else
-                        {
-                            break;
-                        }
+                        description += lines[j] + "\n";
+                        j++;
                     }
+                    LogAction($"description: {description}",project_path);
                 }
                 if (line == "<prompt>")
                 {
                     prompt = "";
-                    while (line != "</prompt>")
+                    int j = i + 1;
+                    while (j < lines.Length && lines[j].Trim().ToLowerInvariant() != "</prompt>")
                     {
-                        prompt += normal + "\n";
-                        i++;
-                        if (i < lines.Length)
-                        {
-                            line = lines[i];
-                        }
-                        else
-                        {
-                            break;
-                        }
+                        prompt += lines[j] + "\n";
+                        j++;
                     }
-                    prompt = prompt.Replace("<prompt>", "");
+                    LogAction($"prompt: {prompt}",project_path);
                 }
                 if (line.StartsWith("idleprompt:"))
                 {
@@ -245,11 +232,11 @@ if (Directory.Exists(Agentsfolder))
                 }
                 if (line == "<mcp_urls>" || line == "<mcpurls>")
                 {
-                    i++;
-                    while (i < lines.Length)
+                    int j = i + 1;
+                    while (j < lines.Length)
                     {
-                        line = lines[i].Trim();
-                        if (line == "</mcp_urls>" || line == "</mcpurls>")
+                        line = lines[j].Trim();
+                        if (line.ToLowerInvariant() == "</mcp_urls>" || line.ToLowerInvariant() == "</mcpurls>")
                         {
                             break;
                         }
@@ -257,7 +244,7 @@ if (Directory.Exists(Agentsfolder))
                         {
                             urls.Add(line);
                         }
-                        i++;
+                        j++;
                     }
                 }
             }
@@ -267,6 +254,7 @@ if (Directory.Exists(Agentsfolder))
     }
     foreach (var agent in Agents)
     {
+        Console.WriteLine();
         Console.WriteLine($"Name: {agent.Name}\nDescription: {agent.Description}");
         Console.WriteLine();
     }

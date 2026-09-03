@@ -5,6 +5,6 @@
 [/] - Visualization / UI -> done with mcp server and vnyan
 [x] - Config system
 [x] - Agent system
-[ ] - trigger implementation
+[x] - trigger implementation
 [x] - idle time customization
 [ ] - so much more...
