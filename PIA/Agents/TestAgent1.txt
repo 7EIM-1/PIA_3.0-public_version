@@ -15,7 +15,7 @@ http://127.0.0.1:8067/mcp
 http://127.0.0.1:8068/mcp
 </mcp_urls>
 
-skinpath:/home/emil/projekte/PIA/P.I.A_3.0-public_version/PIA/skins/skin1.txt
+skinpath:/home/user/projekte/PIA/P.I.A_3.0-public_version/PIA/skins/skin1.txt
 #text input timeout in seconds
 idletime:300
 #speech input timeout in seconds

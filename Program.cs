@@ -24,14 +24,15 @@ string Agentsfolder = Path.Combine(project_path, "Agents");
 int AgentsIndex = -1;
 CGUI ui = new CGUI();
 
+string port = "8080";
+
 Process? proc;   //arecord process
 
 List<Agent> Agents = new List<Agent>();
 List<McpClient> MCPClients = new List<McpClient>();
 List<ChatMessage> messages = [];
 List<AITool> tools = [];
-var clientOptions = new OpenAI.OpenAIClientOptions { Endpoint = new Uri("http://127.0.0.1:8080") };
-var openAIClient = new OpenAI.OpenAIClient(new ApiKeyCredential("not-needed"), clientOptions);
+
 
 //Vosk
 string voskmodelpath = string.Empty;
@@ -94,6 +95,23 @@ foreach (var line in configs)
         {
             continue;
         }
+        if (key.Trim().StartsWith("port"))
+        {
+            port = arg;
+            if (Int32.TryParse(port, out int a))
+            {
+                Console.WriteLine("using port " + a);
+                LogAction("using port " + a, project_path);
+            }
+            else
+            {
+                port = "8080";
+                LogAction("using default port 8080", project_path);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("using default port 8080");
+                Console.ResetColor();
+            }
+        }
         if (key.Trim().StartsWith("agentsfolderpath"))
         {
             Agentsfolder = arg;
@@ -114,6 +132,8 @@ foreach (var line in configs)
     }
 }
 
+var clientOptions = new OpenAI.OpenAIClientOptions { Endpoint = new Uri("http://127.0.0.1:" + port) };
+var openAIClient = new OpenAI.OpenAIClient(new ApiKeyCredential("not-needed"), clientOptions);
 
 //load Agents
 string name = "";
