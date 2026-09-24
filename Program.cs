@@ -24,6 +24,8 @@ string Agentsfolder = Path.Combine(project_path, "Agents");
 int AgentsIndex = -1;
 CGUI ui = new CGUI();
 
+bool logInteraction = false;
+
 string port = "8080";
 
 Process? proc;   //arecord process
@@ -120,6 +122,13 @@ foreach (var line in configs)
         if (key.Trim().StartsWith("voskmodel"))
         {
             voskmodelpath = arg;
+        }
+        if(key == "chatlogging")
+        {
+            if (arg == "1" || arg == "true")
+            {
+                logInteraction = true;
+            }
         }
 
     }
@@ -540,6 +549,16 @@ while (true)
     {
         messages.Add(new(ChatRole.System, Agents[AgentsIndex].Prompt));
     }
+    if (logInteraction)
+    {
+        try{
+        File.AppendAllText(Path.Combine(project_path,"chatlogs.log"), "<>>>User: " + input);
+        }
+        catch (Exception ex)
+        {
+            LogAction(ex.Message,project_path);
+        }
+    }
     messages.Add(new(ChatRole.User, input));
     Console.ForegroundColor = ConsoleColor.Magenta;
     if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty)
@@ -563,6 +582,17 @@ while (true)
 
     }
     LogAction(result, project_path);
+    if (logInteraction)
+    {
+        try
+        {
+            File.AppendAllText(Path.Combine(project_path, "chatlogs.log"), "<<<>AI: " + result);
+        }
+        catch (Exception ex)
+        {
+            LogAction(ex.Message, project_path);
+        }
+    }
 
 }
 
