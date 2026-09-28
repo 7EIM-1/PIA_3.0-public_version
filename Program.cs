@@ -24,6 +24,8 @@ string Agentsfolder = Path.Combine(project_path, "Agents");
 int AgentsIndex = -1;
 CGUI ui = new CGUI();
 
+string exitprompt = string.Empty;
+
 bool logInteraction = false;
 
 string port = "8080";
@@ -130,6 +132,11 @@ foreach (var line in configs)
                 logInteraction = true;
             }
         }
+        if(key == "exitprompt")
+        {
+            exitprompt = arg;
+        }
+
 
     }
     catch (Exception ex)
@@ -167,6 +174,7 @@ if (Directory.Exists(Agentsfolder))
         vpath = "";
         idleprompt = "collect as much context as possible and and start a conversation based on that context. if you can't find anything interesting just reply with something short like '...'.";
         autolisten = false;
+        string eprompt = "";
 
         if (file.EndsWith(".txt"))
         {
@@ -276,9 +284,13 @@ if (Directory.Exists(Agentsfolder))
                         j++;
                     }
                 }
+                if (line.StartsWith("exitprompt:"))
+                {
+                    exitprompt = normal[11..];
+                }
             }
 
-            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls, skinpath = skinpath, voskpath = vpath, autolisten = autolisten, idleprompt = idleprompt });
+            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls, skinpath = skinpath, voskpath = vpath, autolisten = autolisten, idleprompt = idleprompt, Exitprompt = eprompt });
         }
     }
     foreach (var agent in Agents)
@@ -369,6 +381,11 @@ if (AgentsIndex != -1)
     string selectedSkinPath = selectedAgent.skinpath ?? string.Empty;
     LogAction(selectedSkinPath, project_path);
     ui.loadskins(selectedSkinPath);
+
+    if(selectedAgent.Exitprompt != string.Empty)
+    {
+        exitprompt = selectedAgent.Exitprompt;
+    }
 }
 try
 {
@@ -516,6 +533,28 @@ while (true)
         }
         if (input == "#exit")
         {
+            Console.WriteLine("Using exit prompt: " + exitprompt);
+            messages.Add(new(ChatRole.User, exitprompt));
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            if (AgentsIndex != -1 && Agents[AgentsIndex].skinpath != string.Empty)
+            {
+                ui.say("Thinking...");
+            }
+            else
+            { Console.WriteLine("Thinking..."); }
+            await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(messages, new() { Tools = [.. tools] }))
+            {
+                Console.Write(update.Text);
+                //cancel if esc
+                if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)
+                {
+                    Console.WriteLine("Cancelling...");
+                    LogAction("llm response canceled by user", project_path);
+                    break;
+                }
+
+            }
+
             break;
         }
         if (input == "#speak")

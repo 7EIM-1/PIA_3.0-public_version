@@ -9,6 +9,8 @@ your name is P.I.A (Persönliche Intelligente Assistentin). You are a female ver
 keep your answers short and simple. Don't overthink.
 </prompt>
 
+#exitprompt:say goodbye
+
 <mcp_urls>
 http://127.0.0.1:8000/sse
 http://127.0.0.1:8067/mcp

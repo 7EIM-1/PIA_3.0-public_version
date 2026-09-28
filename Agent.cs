@@ -8,6 +8,7 @@ public class Agent
     public string? skinpath = string.Empty;
     public string? voskpath = string.Empty;
     public string? idleprompt = string.Empty;
+    public string? Exitprompt = string.Empty;
     public bool autolisten = false;
     public List<string> mcp_Urls = new List<string>();
 }
