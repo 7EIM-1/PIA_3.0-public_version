@@ -52,6 +52,7 @@ $RECYCLE.BIN/
 *.suo
 *.user
 *.userprefs
+mcpservers/
 
 # Mono Auto Generated Files
 mono_crash.*
