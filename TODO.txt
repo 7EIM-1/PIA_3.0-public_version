@@ -7,4 +7,5 @@
 [x] - Agent system
 [x] - trigger implementation
 [x] - idle time customization
+[ ] - Calender
 [ ] - so much more...
