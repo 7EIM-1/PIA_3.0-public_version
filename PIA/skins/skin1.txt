@@ -1,8 +1,6 @@
 [listen]>>
-* *
- - 
+( ╹ -╹)?
 <<[listen]
 [speak]>>
-# #
- o
+ヽ(°〇°)ﾉ
 <<[speak]
