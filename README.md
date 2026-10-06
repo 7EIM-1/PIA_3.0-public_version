@@ -1,6 +1,6 @@
 # P.I.A 3.0 (public version)
 
-The P.I.A project is my attempt at creating a local AI assistant. It all started as a simple voice control with a stupid but somewhat interesting UI (you can find the original project here: https://github.com/7EIM-1/PIA).\
+The P.I.A project is my attempt at creating a local AI assistant. It all started as a simple voice control with a stupid but somewhat interesting UI (you can find the original project here: https://github.com/7EIM-1/PIA).
 P.I.A 3.0 began when I discovered local AI.
 
 
