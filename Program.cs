@@ -23,7 +23,6 @@ string configpath = Path.Combine(project_path, "config.conf");
 string Agentsfolder = Path.Combine(project_path, "Agents");
 int AgentsIndex = -1;
 CGUI ui = new CGUI();
-
 string exitprompt = string.Empty;
 
 bool logInteraction = false;
@@ -45,7 +44,6 @@ byte[] buffer = new byte[4096];
 int bytesRead;
 var recognizer = (VoskRecognizer?)null;
 string? input = string.Empty;
-var timeawait = TimeSpan.FromSeconds(300);  //text input timer
 var listentime = 30;  //speech input timer in seconds
 
 string trigger = "0";  //0 -> no trigger in use
@@ -159,6 +157,7 @@ string skinpath = "";
 string vpath = ""; //path to vosk model
 string idleprompt = "collect as much context as possible and and start a conversation based on that context. if you can't find anything interesting just reply with something short like '...'.";
 bool autolisten = false;
+TimeSpan timeawait = TimeSpan.FromMinutes(2);
 
 if (Directory.Exists(Agentsfolder))
 {
@@ -174,7 +173,9 @@ if (Directory.Exists(Agentsfolder))
         vpath = "";
         idleprompt = "collect as much context as possible and and start a conversation based on that context. if you can't find anything interesting just reply with something short like '...'.";
         autolisten = false;
+        timeawait = TimeSpan.FromMinutes(2);
         string eprompt = "";
+
 
         if (file.EndsWith(".txt"))
         {
@@ -248,6 +249,8 @@ if (Directory.Exists(Agentsfolder))
                     try
                     {
                         timeawait = TimeSpan.FromSeconds(int.Parse(normal[9..].Trim()));
+                        //Console.WriteLine(timeawait);
+                        LogAction("setting timeawait to: " + timeawait, project_path);
                     }
                     catch (Exception ex)
                     {
@@ -264,7 +267,7 @@ if (Directory.Exists(Agentsfolder))
                     }
                     catch (Exception ex)
                     {
-                        LogAction($"Error in file {file}: ex.Message",project_path);
+                        LogAction($"Error in file {file}: {ex.Message}",project_path);
                     }
                 }
                 if (line == "<mcp_urls>" || line == "<mcpurls>")
@@ -290,7 +293,7 @@ if (Directory.Exists(Agentsfolder))
                 }
             }
 
-            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls, skinpath = skinpath, voskpath = vpath, autolisten = autolisten, idleprompt = idleprompt, Exitprompt = eprompt });
+            Agents.Add(new Agent { Name = name, Description = description, Prompt = prompt, mcp_Urls = urls, skinpath = skinpath, voskpath = vpath, autolisten = autolisten, idleprompt = idleprompt, Exitprompt = eprompt, idletime = timeawait });
         }
     }
     foreach (var agent in Agents)
@@ -468,7 +471,7 @@ while (true)
             //input = ui.await_input().Trim();
             ui.printlisten();
             Console.WriteLine();
-            input = await Input("You: ", timeawait);
+            input = await Input("You: ", Agents[AgentsIndex].idletime);
             if (string.IsNullOrWhiteSpace(input))
             {
                 input = Agents[AgentsIndex].idleprompt;
@@ -485,7 +488,7 @@ while (true)
     }
     else
     {
-        input = await Input("You: ", timeawait);
+        input = await Input("You: ", Agents[AgentsIndex].idletime);
         if (string.IsNullOrWhiteSpace(input))
         {
             if (AgentsIndex != -1)
@@ -557,7 +560,11 @@ while (true)
 
             break;
         }
-        if (input == "#speak")
+        if(input == "#")
+        {
+            continue;
+        }
+        if (input == "#speak" || input == "#listen")
         {
             Console.WriteLine("please speak now: ");
             input = string.Empty;
@@ -576,6 +583,10 @@ while (true)
             {
                 bytesRead = 0;
             }
+        }
+        if (input.StartsWith("#"))
+        {
+            continue;
         }
 
 
@@ -644,8 +655,7 @@ void LogAction(string message, string project_path)
     {
         if (!File.Exists(Path.Combine(project_path, "logfile.log")))
         {
-            using (File.Create(Path.Combine(project_path, "logfile.log"))) { }
-            ;
+            using (File.Create(Path.Combine(project_path, "logfile.log"))) { };
         }
         File.AppendAllText(Path.Combine(project_path, "logfile.log"), DateTime.Now + " -> " + message + "\n");
     }
@@ -667,10 +677,7 @@ async Task<string> voskwatcher(int timeout = 30)
     {
         try
         {
-            if (proc != null &&
-                proc.StandardOutput != null &&
-                !proc.StandardOutput.EndOfStream &&
-                recognizer != null)
+            if (proc != null &&proc.StandardOutput != null && !proc.StandardOutput.EndOfStream && recognizer != null)
             {
                 bytesRead = proc.StandardOutput.BaseStream.Read(
                     buffer, 0, buffer.Length);
@@ -751,7 +758,7 @@ async Task<string> Input(string prompt, TimeSpan timeout)
         while (Console.KeyAvailable)
         {
             ConsoleKeyInfo key = Console.ReadKey(intercept: true);
-
+            
             if (key.Key == ConsoleKey.Enter)
             {
                 Console.WriteLine();
@@ -772,6 +779,7 @@ async Task<string> Input(string prompt, TimeSpan timeout)
             if (!char.IsControl(key.KeyChar))
             {
                 line.Append(key.KeyChar);
+                stopwatch.Restart();
                 Console.Write(key.KeyChar);
             }
         }

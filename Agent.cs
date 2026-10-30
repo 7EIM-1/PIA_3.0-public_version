@@ -9,6 +9,7 @@ public class Agent
     public string? voskpath = string.Empty;
     public string? idleprompt = string.Empty;
     public string? Exitprompt = string.Empty;
+    public TimeSpan idletime = TimeSpan.FromSeconds(60);
     public bool autolisten = false;
     public List<string> mcp_Urls = new List<string>();
 }

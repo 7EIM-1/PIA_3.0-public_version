@@ -1,6 +1,7 @@
 # Build output
 bin/
 obj/
+publish/
 
 # Visual Studio temporary files, build results, and
 # user-specific files
